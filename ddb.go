@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -16,6 +17,57 @@ type DynamoDBClient interface {
 	ListTables(context.Context, *dynamodb.ListTablesInput, ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	Scan(context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+}
+
+/*
+If the tag is not present for the field, the field will serialize to an
+"S"-typed column named the same as the struct field.
+
+If the tag is present, the converter will look for exactly 1 or 2
+comma-delimited fields in the tag.
+The first part is the DDB column name. The second part is the column
+type.
+
+If the entire tag is "-", the field is ignored.
+If the column name is "-", the default column name is used instead.
+If the tag type is "", the default is used instead.
+If the tag type is neither "S" nor "N", it is an error and the field is
+ignored
+
+Returns: shouldInclude, ddbName, ddbType
+*/
+func extractDdbTags(fieldSpec reflect.StructField) (bool, string, string) {
+	ddbName := fieldSpec.Name
+	ddbType := "S"
+
+	ddbTag := fieldSpec.Tag.Get("ddb")
+	parts := strings.Split(ddbTag, ",")
+	if len(parts) > 2 {
+		return false, "", ""
+	}
+
+	if len(parts) == 0 {
+		return true, ddbName, ddbType
+	}
+
+	val1 := strings.TrimSpace(parts[0])
+	if len(parts) == 1 && val1 == "-" {
+		return false, "", ""
+	}
+	if val1 != "" && val1 != "-" {
+		ddbName = val1
+	}
+
+	if len(parts) == 2 {
+		val2 := strings.TrimSpace(parts[1])
+		if val2 != "" {
+			ddbType = val2
+		}
+		if ddbType != "S" && ddbType != "N" {
+			return false, "", ""
+		}
+	}
+	return true, ddbName, ddbType
 }
 
 func StructToAttributeMap(input interface{}) map[string]types.AttributeValue {
@@ -42,8 +94,12 @@ func StructToAttributeMap(input interface{}) map[string]types.AttributeValue {
 			panic(fmt.Sprintf("unsupported kind %v for field %q", fieldValue.Kind(), f.Name))
 		}
 
-		field := inputType.Field(i)
-		ddbType := field.Tag.Get("ddb")
+		fieldSpec := inputType.Field(i)
+		shouldInclude, ddbName, ddbType := extractDdbTags(fieldSpec)
+		if !shouldInclude {
+			continue
+		}
+
 		var v types.AttributeValue
 		switch ddbType {
 		case "N":
@@ -54,7 +110,8 @@ func StructToAttributeMap(input interface{}) map[string]types.AttributeValue {
 
 		}
 
-		am[f.Name] = v
+		fmt.Println("USER", ddbName)
+		am[ddbName] = v
 	}
 
 	return am
@@ -71,16 +128,31 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 	}
 
 	outType := outValue.Type()
-	for colName, ddbValue := range am {
-		fieldSpec, hasField := outType.FieldByName(colName)
 
+	type spec struct {
+		fieldName string
+		ddbType   string
+		index     int
+	}
+	fieldSpecs := map[string]spec{}
+
+	for i := 0; i < outType.NumField(); i++ {
+		fieldSpec := outType.Field(i)
+		shouldInclude, ddbName, ddbType := extractDdbTags(fieldSpec)
+		if !shouldInclude {
+			continue
+		}
+		fieldSpecs[ddbName] = spec{fieldSpec.Name, ddbType, i}
+	}
+
+	for colName, ddbValue := range am {
+		fieldSpec, hasField := fieldSpecs[colName]
 		if !hasField {
 			panic(fmt.Sprintf("no struct field matching ddb column name %s", colName))
 		}
 
-		ddbType := fieldSpec.Tag.Get("ddb")
 		var strValue string
-		switch ddbType {
+		switch fieldSpec.ddbType {
 		case "N":
 			strValue = ddbValue.(*types.AttributeValueMemberN).Value
 
@@ -88,7 +160,7 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 			strValue = ddbValue.(*types.AttributeValueMemberS).Value
 		}
 
-		fieldValue := outValue.FieldByName(colName)
+		fieldValue := outValue.Field(fieldSpec.index)
 
 		switch {
 		case fieldValue.CanInt():

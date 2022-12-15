@@ -1,11 +1,11 @@
-package goddb_test
+package dynamodbtk_test
 
 import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/require"
-	"github.com/treaster/goddb"
+	"github.com/treaster/goawstk/dynamodbtk"
 )
 
 type MyStruct struct {
@@ -25,7 +25,7 @@ type MyStruct struct {
 
 func TestStructToAttributeMap(t *testing.T) {
 	input := MyStruct{1, 2, 3, "s4", "s5", "s6", "s7", 8, "s9", "s10", "s11", "s12"}
-	am := goddb.StructToAttributeMap(input)
+	am := dynamodbtk.StructToAttributeMap(input)
 
 	expectedAm := map[string]types.AttributeValue{
 		"field_1": &types.AttributeValueMemberN{Value: "1"},
@@ -43,7 +43,7 @@ func TestStructToAttributeMap(t *testing.T) {
 
 	var output MyStruct
 
-	err := goddb.AttributeMapToStruct(am, &output)
+	err := dynamodbtk.AttributeMapToStruct(am, &output)
 	require.NoError(t, err)
 
 	input.Field9 = ""

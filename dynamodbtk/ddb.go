@@ -1,4 +1,4 @@
-package goddb
+package dynamodbtk
 
 import (
 	"context"

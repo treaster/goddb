@@ -1,4 +1,4 @@
-module github.com/treaster/goddb
+module github.com/treaster/goawstk
 
 go 1.18
 

@@ -110,7 +110,6 @@ func StructToAttributeMap(input interface{}) map[string]types.AttributeValue {
 
 		}
 
-		fmt.Println("USER", ddbName)
 		am[ddbName] = v
 	}
 

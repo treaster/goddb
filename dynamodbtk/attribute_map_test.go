@@ -17,14 +17,16 @@ type MyStruct struct {
 	Field6  string `ddb:"field_6,"`
 	Field7  string
 	Field8  int    `ddb:" field_8 , N "`
-	Field9  string `ddb:"-"`       // - means ignore
-	Field10 string `ddb:"f,S,"`    // too many tag fields
-	Field11 string `ddb:"f,S,xyz"` // too many tag fields
-	Field12 string `ddb:",Q"`      // illegal type code
+	Field9  string `ddb:"-"`          // - means ignore
+	Field10 string `ddb:"f,S,"`       // too many tag fields
+	Field11 string `ddb:"f,S,xyz"`    // too many tag fields
+	Field12 string `ddb:",Q"`         // illegal type code
+	Field13 bool   `ddb:"field_13,N"` // bool type
+	Field14 bool   `ddb:"field_14,N"` // another bool type
 }
 
 func TestStructToAttributeMap(t *testing.T) {
-	input := MyStruct{1, 2, 3, "s4", "s5", "s6", "s7", 8, "s9", "s10", "s11", "s12"}
+	input := MyStruct{1, 2, 3, "s4", "s5", "s6", "s7", 8, "s9", "s10", "s11", "s12", true, false}
 	am := dynamodbtk.StructToAttributeMap(input)
 
 	expectedAm := map[string]types.AttributeValue{
@@ -37,6 +39,8 @@ func TestStructToAttributeMap(t *testing.T) {
 		"Field7":  &types.AttributeValueMemberS{Value: "s7"},
 		"field_8": &types.AttributeValueMemberN{Value: "8"},
 		// Field9 and onwards are omitted
+		"field_13": &types.AttributeValueMemberN{Value: "1"},
+		"field_14": &types.AttributeValueMemberN{Value: "0"},
 	}
 
 	require.Equal(t, expectedAm, am)

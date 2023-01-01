@@ -90,6 +90,12 @@ func StructToAttributeMap(input interface{}) map[string]types.AttributeValue {
 			strValue = strconv.FormatFloat(fieldValue.Float(), 'E', -1, 64)
 		case fieldValue.Kind() == reflect.String:
 			strValue = fieldValue.String()
+		case fieldValue.Kind() == reflect.Bool:
+			var intVal int64 = 0
+			if fieldValue.Bool() {
+				intVal = 1
+			}
+			strValue = strconv.FormatInt(intVal, 10)
 		default:
 			panic(fmt.Sprintf("unsupported kind %v for field %q", fieldValue.Kind(), f.Name))
 		}
@@ -192,6 +198,14 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 		case fieldValue.Kind() == reflect.String:
 			finalValue := strValue
 			fieldValue.SetString(finalValue)
+		case fieldValue.Kind() == reflect.Bool:
+			intValue, err := strconv.ParseInt(strValue, 10, 64)
+			if err != nil {
+				return fmt.Errorf("unable to parse int (bool) value from %q for field %q", strValue, colName)
+			}
+
+			finalValue := intValue > 0
+			fieldValue.SetBool(finalValue)
 		default:
 			panic(fmt.Sprintf("unsupported kind %v for field %q", fieldValue.Kind(), colName))
 		}

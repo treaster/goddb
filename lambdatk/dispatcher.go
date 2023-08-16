@@ -76,3 +76,24 @@ func (d dispatcher) HandleTestRequest(eventStr string) {
 	}
 	log.Printf("%+v", result)
 }
+
+func (d dispatcher) HandleTestOpRequest(op string, payloadStr string) {
+	evtBody := EventBody{
+		op,
+		json.RawMessage(payloadStr),
+	}
+
+	bodyJson, err := json.Marshal(evtBody)
+	if err != nil {
+		log.Fatalf("error in test call: %s\n", err.Error())
+	}
+	evt := Event{
+		Body: string(bodyJson),
+	}
+
+	result, err := d.HandleRequest(context.Background(), evt)
+	if err != nil {
+		log.Fatalf("error in test call: %s\n", err.Error())
+	}
+	log.Printf("%+v", result)
+}

@@ -8,6 +8,7 @@ import (
 type Dispatcher interface {
 	HandleRequest(context.Context, Event) (EventResult, error)
 	HandleTestRequest(eventStr string)
+	HandleTestOpRequest(op string, payloadStr string)
 }
 
 type OpHandler interface {

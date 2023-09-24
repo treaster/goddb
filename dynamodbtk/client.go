@@ -10,11 +10,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-func NewClient(region string) *dynamodb.Client {
+func NewClient(ctx context.Context, region string) *dynamodb.Client {
 	if region == "localhost" {
 		return localhostClient()
 	} else {
-		return awsClient(region)
+		return awsClient(ctx, region)
 	}
 }
 
@@ -47,11 +47,14 @@ func localhostClient() *dynamodb.Client {
 	return dynamodb.NewFromConfig(cfg)
 }
 
-func awsClient(region string) *dynamodb.Client {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), func(o *config.LoadOptions) error {
-		o.Region = region
-		return nil
-	})
+func awsClient(ctx context.Context, region string) *dynamodb.Client {
+	cfg, err := config.LoadDefaultConfig(
+		ctx,
+		func(o *config.LoadOptions) error {
+			o.Region = region
+			return nil
+		},
+	)
 	if err != nil {
 		log.Fatalf("unable to load config for aws: %v", err.Error())
 	}

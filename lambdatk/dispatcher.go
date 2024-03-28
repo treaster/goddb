@@ -19,7 +19,7 @@ type dispatcher struct {
 	handlers    map[string]OpHandler
 }
 
-func (d dispatcher) HandleRequest(ctx context.Context, evt Event) (EventResult, error) {
+func (d dispatcher) HandleHttpRequest(ctx context.Context, evt HttpEvent) (EventResult, error) {
 	result, err := d.handleRequestHelper(ctx, evt)
 	if err != nil {
 		return EventResult{
@@ -32,7 +32,7 @@ func (d dispatcher) HandleRequest(ctx context.Context, evt Event) (EventResult, 
 	}
 }
 
-func (d dispatcher) handleRequestHelper(ctx context.Context, evt Event) (interface{}, error) {
+func (d dispatcher) handleRequestHelper(ctx context.Context, evt HttpEvent) (interface{}, error) {
 	startEventTime := time.Now()
 	defer func() {
 		endTime := time.Now()
@@ -44,41 +44,53 @@ func (d dispatcher) handleRequestHelper(ctx context.Context, evt Event) (interfa
 
 	log.Printf("source body is %q", evt.Body)
 
-	var evtBody EventBody
-	err := json.Unmarshal([]byte(evt.Body), &evtBody)
+	// Parse the HTTP body into an (op, args) tuple for dynamodbtk.
+	var call HandlerCall
+	err := json.Unmarshal([]byte(evt.Body), &call)
 	if err != nil {
 		return "", newErrf("unable to parse event: %s", err.Error())
 	}
 
-	handler, hasHandler := d.handlers[evtBody.Op]
+	// Find the handler method for the specified op.
+	handler, hasHandler := d.handlers[call.Op]
 	if !hasHandler {
-		return "", newErrf("unknown op %q", evtBody.Op)
+		return "", newErrf("unknown op %q", call.Op)
 	}
 
-	result, err := handler.Handle(ctx, evtBody.Args)
+	// Invoke the handler with the args, plus some other HTTP metadata.
+	handlerEvent := HandlerEvent{
+		Args: call.Args,
+		HttpMetadata: HttpMetadata{
+			Header:     evt.Header,
+			Host:       evt.Host,
+			RemoteAddr: evt.RemoteAddr,
+		},
+	}
+
+	result, err := handler.Handle(ctx, handlerEvent)
 	if err != nil {
-		return "", newErrf("error in %q handler: %s", evtBody.Op, err.Error())
+		return "", newErrf("error in %q handler: %s", call.Op, err.Error())
 	}
 
 	return result, nil
 }
 
-func (d dispatcher) HandleTestRequest(eventStr string) {
-	var evt Event
+func (d dispatcher) HandleTestHttpRequest(eventStr string) {
+	var evt HttpEvent
 	err := json.Unmarshal([]byte(eventStr), &evt)
 	if err != nil {
 		log.Fatalf("error in test JSON: %s", err.Error())
 	}
 
-	result, err := d.HandleRequest(context.Background(), evt)
+	result, err := d.HandleHttpRequest(context.Background(), evt)
 	if err != nil {
 		log.Fatalf("error in test call: %s\n", err.Error())
 	}
 	log.Printf("%+v", result)
 }
 
-func (d dispatcher) HandleTestOpRequest(op string, payloadStr string) {
-	evtBody := EventBody{
+func (d dispatcher) HandleTestOpHttpRequest(op string, payloadStr string) {
+	evtBody := HandlerCall{
 		op,
 		json.RawMessage(payloadStr),
 	}
@@ -87,11 +99,11 @@ func (d dispatcher) HandleTestOpRequest(op string, payloadStr string) {
 	if err != nil {
 		log.Fatalf("error in test call: %s\n", err.Error())
 	}
-	evt := Event{
+	evt := HttpEvent{
 		Body: string(bodyJson),
 	}
 
-	result, err := d.HandleRequest(context.Background(), evt)
+	result, err := d.HandleHttpRequest(context.Background(), evt)
 	if err != nil {
 		log.Fatalf("error in test call: %s\n", err.Error())
 	}

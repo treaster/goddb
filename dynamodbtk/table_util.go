@@ -34,16 +34,27 @@ func PutItem[InputT any](
 	client DynamoDBClient,
 	tableName string,
 	item InputT,
+	failIfExistsKey string,
 ) (InputT, error) {
+	if tableName == "" {
+		panic(fmt.Sprintf("error in PutItem: tableName is empty"))
+	}
 	itemAttributes := StructToAttributeMap(item)
 	var oldItem InputT
 
-	putResult, err := client.PutItem(ctx, &dynamodb.PutItemInput{
+	input := dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      itemAttributes,
-	})
+	}
+
+	if failIfExistsKey != "" {
+		input.ConditionExpression = aws.String(fmt.Sprintf("attribute_not_exists(%s)", failIfExistsKey))
+	}
+
+	fmt.Println("PutItem", tableName, itemAttributes)
+	putResult, err := client.PutItem(ctx, &input)
 	if err != nil {
-		fmt.Print("PutItem error %s", err.Error())
+		fmt.Println("PutItem error:", err.Error())
 		return oldItem, err
 	}
 
@@ -57,6 +68,10 @@ func QueryItemsByInt[OutputT any](
 	tableName string,
 	fieldName string,
 	queryValue int) ([]OutputT, error) {
+	if tableName == "" {
+		panic(fmt.Sprintf("error in PutItem: tableName is empty"))
+	}
+
 	queryValues := struct {
 		Query int `ddb:":queryValue,N"`
 	}{

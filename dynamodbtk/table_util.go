@@ -3,6 +3,7 @@ package dynamodbtk
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -51,10 +52,10 @@ func PutItem[InputT any](
 		input.ConditionExpression = aws.String(fmt.Sprintf("attribute_not_exists(%s)", failIfExistsKey))
 	}
 
-	fmt.Println("PutItem", tableName, itemAttributes)
+	log.Printf("PutItem", tableName, itemAttributes)
 	putResult, err := client.PutItem(ctx, &input)
 	if err != nil {
-		fmt.Println("PutItem error:", err.Error())
+		log.Printf("PutItem error:", err.Error())
 		return oldItem, err
 	}
 
@@ -62,7 +63,7 @@ func PutItem[InputT any](
 	return oldItem, nil
 }
 
-func QueryItemsByInt[OutputT any](
+func QueryItemsByIntField[OutputT any](
 	ctx context.Context,
 	client DynamoDBClient,
 	tableName string,
@@ -70,6 +71,9 @@ func QueryItemsByInt[OutputT any](
 	queryValue int) ([]OutputT, error) {
 	if tableName == "" {
 		panic(fmt.Sprintf("error in PutItem: tableName is empty"))
+	}
+	if fieldName == "" {
+		panic(fmt.Sprintf("error in PutItem: fieldName is empty"))
 	}
 
 	queryValues := struct {
@@ -91,7 +95,7 @@ func QueryItemsByInt[OutputT any](
 		var rowValues OutputT
 		err := AttributeMapToStruct(item, &rowValues)
 		if err != nil {
-			fmt.Println("error:", err)
+			log.Printf("error:", err)
 			continue
 		}
 

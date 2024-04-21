@@ -154,7 +154,8 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 	for colName, ddbValue := range am {
 		fieldSpec, hasField := fieldSpecs[colName]
 		if !hasField {
-			panic(fmt.Sprintf("no struct field matching ddb column name %s", colName))
+			// panic(fmt.Sprintf("no struct field matching ddb column name %s", colName))
+			continue
 		}
 
 		var strValue string

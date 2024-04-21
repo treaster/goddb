@@ -52,7 +52,7 @@ func PutItem[InputT any](
 		input.ConditionExpression = aws.String(fmt.Sprintf("attribute_not_exists(%s)", failIfExistsKey))
 	}
 
-	log.Printf("PutItem", tableName, itemAttributes)
+	log.Printf("PutItem %s %v", tableName, itemAttributes)
 	putResult, err := client.PutItem(ctx, &input)
 	if err != nil {
 		log.Printf("PutItem error:", err.Error())

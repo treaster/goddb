@@ -20,9 +20,9 @@ type AdderHandler struct {
 	AdderValue int
 }
 
-func (h AdderHandler) Handle(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func (h AdderHandler) Handle(ctx context.Context, evt lambdatk.HandlerEvent) (interface{}, error) {
 	var input AdderInput
-	err := json.Unmarshal(args, &input)
+	err := json.Unmarshal(evt.Args, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -43,13 +43,13 @@ func TestDispatcher(t *testing.T) {
 
 	dispatcher := lambdatk.MakeDispatcher(handlers)
 
-	evt := lambdatk.Event{
+	evt := lambdatk.HttpEvent{
 		Body: `{
 			"op": "add1",
 			"args": {"input": 2}
 		}`,
 	}
-	result, err := dispatcher.HandleRequest(context.TODO(), evt)
+	result, err := dispatcher.HandleHttpRequest(context.TODO(), evt)
 	require.NoError(t, err)
 
 	expected := lambdatk.EventResult{

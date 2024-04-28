@@ -15,8 +15,17 @@ type DynamoDBClient interface {
 	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	ListTables(context.Context, *dynamodb.ListTablesInput, ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
+	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 	Scan(context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+}
+
+type ErrNoMatchingStructFieldForColumns struct {
+	ColumnNames []string
+}
+
+func (e ErrNoMatchingStructFieldForColumns) Error() string {
+	return fmt.Sprintf("no struct field matching ddb column names: %v", e.ColumnNames)
 }
 
 /*
@@ -150,10 +159,12 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 		fieldSpecs[ddbName] = spec{fieldSpec.Name, ddbType, i}
 	}
 
+	var err ErrNoMatchingStructFieldForColumns
 	for colName, ddbValue := range am {
 		fieldSpec, hasField := fieldSpecs[colName]
 		if !hasField {
-			panic(fmt.Sprintf("no struct field matching ddb column name %s", colName))
+			err.ColumnNames = append(err.ColumnNames, colName)
+			continue
 		}
 
 		var strValue string
@@ -209,6 +220,10 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 		default:
 			panic(fmt.Sprintf("unsupported kind %v for field %q", fieldValue.Kind(), colName))
 		}
+	}
+
+	if len(err.ColumnNames) > 0 {
+		return err
 	}
 
 	return nil

@@ -228,3 +228,18 @@ func AttributeMapToStruct(am map[string]types.AttributeValue, out interface{}) e
 
 	return nil
 }
+
+func AttributeMapsToStructs[OutputT any](items []map[string]types.AttributeValue) []OutputT {
+	var result []OutputT
+	for _, item := range items {
+		var rowValues OutputT
+		err := AttributeMapToStruct(item, &rowValues)
+		if err != nil {
+			continue
+		}
+
+		result = append(result, rowValues)
+	}
+
+	return result
+}

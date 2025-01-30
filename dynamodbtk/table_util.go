@@ -100,3 +100,33 @@ func QueryItemsByIntField[OutputT any](
 
 	return result, nil
 }
+
+func QueryItemsByStrField[OutputT any](
+	ctx context.Context,
+	client DynamoDBClient,
+	tableName string,
+	fieldName string,
+	queryValue string) ([]OutputT, error) {
+	if tableName == "" {
+		panic(fmt.Sprintf("error in QueryItemsByStrField: tableName is empty"))
+	}
+	if fieldName == "" {
+		panic(fmt.Sprintf("error in QueryItemsByStrField: fieldName is empty"))
+	}
+
+	queryValues := struct {
+		Query string `ddb:":queryValue,S"`
+	}{
+		queryValue,
+	}
+	out, err := client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 aws.String(tableName),
+		KeyConditionExpression:    aws.String(fmt.Sprintf("%s = :queryValue", fieldName)),
+		ExpressionAttributeValues: StructToAttributeMap(queryValues),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return AttributeMapsToStructs[OutputT](out.Items), nil
+}
